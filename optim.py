@@ -1,91 +1,93 @@
 import numpy as np
-from scipy.linalg import eigh
-import matplotlib.pyplot as plt
-import scipy
+from utils import Log
+import math
+
+def fom(f,gen,niter=200):
+    x1=x=f.x0
+    log=Log()
+    log(f,x)
+     
+    for _ in range(niter):
+        a,b,_=next(gen)
+        aux=x
+        x=x+(a-1)*(x-x1)+b*f.grad(x)
+        x1=aux
+        
+        log(f,x)
+        
+    return log,x
+
+def jacobi_basegen(alpha,beta):
+
+    n=1
+    while True:
+        
+        at=(alpha**2-beta**2)*(2*n+alpha+beta+1)/ \
+            (2*(n+1)*(n+alpha+beta+1)*(2*n+alpha+beta))
+        bt=(2*n+alpha+beta+1)*(2*n+alpha+beta+2)/ \
+            (2*(n+1)*(n+alpha+beta+1))
+        ct=-(n+alpha)*(n+beta)*(2*n+alpha+beta+2)/ \
+            ((n+1)*(n+alpha+beta+1)*(2*n+alpha+beta))
+        
+        
+        yield at,bt,ct
+        n+=1
+def laguerre_basegen(alpha):
+    n=1
+    while True:
+        bt=-1/(n+1)
+        at=(2*n+alpha+1)/(n+1)
+        ct=-(n+alpha)/(n+1)
+        
+        yield at,bt,ct
+        n+=1
+        
+def residual_wrapgen(gen):
+    delta=0
+    while True:
+        alpha,beta,gamma=next(gen)
+        delta=1/(alpha+gamma*delta)
+        yield alpha*delta,delta*beta,1-alpha*delta
+        
+def shift_wrapgen(gen,a=2,b=2):
+    while True:
+        alpha,beta,gamma=next(gen)
+        alpha=alpha+b*beta
+        beta=a*beta
+
+        yield alpha,beta,gamma
+    
+def jacobi_momentum(f,alpha=1/2,beta=5/2,niter=200,L=None):
+    if hasattr(f,'L'):
+        L=f.L
+    if not L:
+        raise Error()
+    gen=residual_wrapgen(shift_wrapgen(jacobi_basegen(alpha,beta),2/f.L,-1))
+    return fom(f,gen,niter)
+def jm_decorator(alpha,beta):
+    def  aux(*args,**kwargs):
+        return jacobi_momentum(*args,alpha=alpha,beta=beta,**kwargs)
+    return aux
 
 
-class Log:
-    def __init__(self):
-        self.log={'grad': [],'x':[],'f':[]}
-    def __getitem__(self,k):
-        return np.asarray(self.log[k])
-    def to_numpy(self):
-        a=np.stack(np.asarray(v) for v in self.log.values())
-        return a,self.log.keys()
-    def __call__(self,f,x): 
-        
-        self.log['grad'].append(np.linalg.norm(f.grad(x))**2)
-        self.log['x'].append(np.linalg.norm(x)**2)
-        self.log['f'].append(np.linalg.norm(f(x)**2))
-        
+def gd(f,niter=200,L=None):
+    def gen():
+        while True:
+            yield 1,-1/f.L,0
+    return fom(f,gen(),niter)
 
-class BetaQuadratic:
-    def __init__(self,r=1,sigma=1,n=600,a=1/2,b=1):
-        evs=4*scipy.stats.beta(a=a,b=b).rvs(size=n)
-        u=scipy.stats.ortho_group.rvs(n)
-        
-        self.A=u@np.diag(evs)@u.T
-        self.x0=np.random.normal(size=(n,1))
-        self.L=eigh(self.A,eigvals_only=True,subset_by_index=[n-1,n-1])
-        
-        
-    def plot(self):
-        ev,_=np.linalg.eigh(self.A)
-        plt.hist(ev[ev<100],bins=30)
-        plt.show()
+def polyak(f,niter=200):
+    l,L=f.l,f.L
+    m=(math.sqrt(L)-math.sqrt(l))/(math.sqrt(L)+math.sqrt(l))
+    bt=-4/(math.sqrt(L)+math.sqrt(l))**2
     
-    def __call__(self,x):
-        return 1/2* x.T@self.A@x
-    
-    def grad(self,x):
-        return self.A@x
-    
+    def gen():
+        while True:
+            yield m+1,bt,0
+            
+    return fom(f,gen(),niter)
 
-class RandomQuadratic:
-    def __init__(self,r=1,sigma=1,n=600):
-        m=int(n*r)
-        X=np.random.normal(size=(m,n),scale=sigma)
-        self.A=1/n*(X@X.T)
-        self.x0=np.random.normal(size=(m,1))
-        self.L=eigh(self.A,eigvals_only=True,subset_by_index=[m-1,m-1])
-        
-        
-    def plot(self):
-        ev,_=np.linalg.eigh(self.A)
-        plt.hist(ev[ev<100],bins=30)
-        plt.show()
-    
-    def __call__(self,x):
-        return 1/2* x.T@self.A@x
-    
-    def grad(self,x):
-        return self.A@x
-    
-    
-class FeaturesQuadratic:
-    def __init__(self,X,y,torch=False):
-        self.X=X/np.sqrt(X.shape[0])
-        self.A=self.X.T@self.X
-        if torch:
-            self.x0=torch.randn((self.X.shape[1],1),device='cuda')
-        else:
-            self.x0=np.random.normal(size=(self.X.shape[1],1))
-        self.y=y[:,None]
-        m=len(self.A)
-        self.L=eigh(self.A,eigvals_only=True,subset_by_index=[m-1,m-1])
-        
-    def plot(self):
-        ev,_=np.linalg.eigh(self.A)
-        plt.hist(ev[ev<100],bins=30)
-        plt.show()
-    
-    def __call__(self,x):
-        return 1/2*np.linalg.norm(self.X@x-self.y)**2
-    
-    def grad(self,x):
-        return self.X.T@(self.X@x-self.y)
 
-    
         
 def nesterov(f,niter=200,L=4):
     x=0
@@ -93,24 +95,13 @@ def nesterov(f,niter=200,L=4):
     alpha=1/L
     log=Log()
     log(f,y)
-    for k in tqdm(range(1,niter+1)):
+    for k in range(1,niter+1):
         beta=k/(k+3)
         x1=y-alpha*f.grad(y)
         y=x1+beta*(x1-x)
         x=x1
         #x=x-alpha*f.grad(x)
         ##log
-        log(f,x)
-        
-    return log,x
-
-def gd(f,niter=200,L=4):
-    x=f.x0
-    alpha=1/L
-    log=Log()
-    log(f,x)
-    for k in tqdm(range(1,niter+1)):
-        x=x-alpha*f.grad(x)
         log(f,x)
         
     return log,x
