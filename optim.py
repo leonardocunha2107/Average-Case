@@ -18,16 +18,18 @@ def fom(f,gen,niter=200):
     return log,x
 
 def jacobi_basegen(alpha,beta):
-
-    n=1
+    
+    yield (alpha-beta)/2,(alpha+beta+2)/2,0
+    
+    n=2
     while True:
         
-        at=(alpha**2-beta**2)*(2*n+alpha+beta+1)/ \
-            (2*(n+1)*(n+alpha+beta+1)*(2*n+alpha+beta))
-        bt=(2*n+alpha+beta+1)*(2*n+alpha+beta+2)/ \
-            (2*(n+1)*(n+alpha+beta+1))
-        ct=-(n+alpha)*(n+beta)*(2*n+alpha+beta+2)/ \
-            ((n+1)*(n+alpha+beta+1)*(2*n+alpha+beta))
+        at=(alpha**2-beta**2)*(2*n+alpha+beta-1)/ \
+            (2*(n)*(n+alpha+beta)*(2*n+alpha+beta-2))
+        bt=(2*n+alpha+beta-1)*(2*n+alpha+beta)/ \
+            (2*(n)*(n+alpha+beta))
+        ct=-(n+alpha-1)*(n+beta-1)*(2*n+alpha+beta)/ \
+            ((n)*(n+alpha+beta)*(2*n+alpha+beta-2))
         
         
         yield at,bt,ct
@@ -100,8 +102,6 @@ def nesterov(f,niter=200,L=4):
         x1=y-alpha*f.grad(y)
         y=x1+beta*(x1-x)
         x=x1
-        #x=x-alpha*f.grad(x)
-        ##log
         log(f,x)
         
     return log,x

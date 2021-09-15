@@ -19,8 +19,8 @@ class Log:
         
 
 class BetaQuadratic:
-    def __init__(self,r=1,sigma=1,n=600,a=1/2,b=1):
-        evs=scipy.stats.beta(a=a,b=b).rvs(size=n)
+    def __init__(self,r=1,sigma=1,n=600,tau=1/2,xi=-1/2):
+        evs=scipy.stats.beta(a=xi+1,b=tau+1).rvs(size=n)
         u=scipy.stats.ortho_group.rvs(n)
         
         self.A=u@np.diag(evs)@u.T
