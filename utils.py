@@ -2,7 +2,7 @@ import numpy as np
 from scipy.linalg import eigh
 import matplotlib.pyplot as plt
 import scipy
-
+float_type=np.longdouble
 class Log:
     def __init__(self):
         self.log={'grad': [],'x':[],'f':[]}
@@ -23,8 +23,8 @@ class BetaQuadratic:
         evs=scipy.stats.beta(a=xi+1,b=tau+1).rvs(size=n)
         u=scipy.stats.ortho_group.rvs(n)
         
-        self.A=u@np.diag(evs)@u.T
-        self.x0=np.random.normal(size=(n,1))
+        self.A=(u@np.diag(evs)@u.T)
+        self.x0=np.random.normal(size=(n,1)).astype(float_type)
         self.L=eigh(self.A,eigvals_only=True,subset_by_index=[n-1,n-1])
         
         

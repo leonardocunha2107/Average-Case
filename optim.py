@@ -45,7 +45,7 @@ def laguerre_basegen(alpha):
         n+=1
         
 def residual_wrapgen(gen):
-    delta=0
+    delta=np.array([0],dtype=np.longdouble)
     while True:
         alpha,beta,gamma=next(gen)
         delta=1/(alpha+gamma*delta)
@@ -73,6 +73,7 @@ def jm_decorator(alpha,beta):
 
 
 def gd(f,niter=200,L=None):
+    
     def gen():
         while True:
             yield 1,-1/f.L,0
